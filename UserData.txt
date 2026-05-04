@@ -1,0 +1,7 @@
+UserData.txt
+
+1. John Doe 1qw3er5t6y7uui J.Doe@gmail.com
+2. Jack frost 12w3098765f7uui J.frost@gmail.com
+3. Dineo nkuna w23ert6543w D.Nkuna@gmail.com
+4. Ben Rover oi9u87t6r5errt B.Rover@gmail.com
+5. Tebogo Nkwana 0o9i8uy766ty7 T.Nkwana@gmail.com
