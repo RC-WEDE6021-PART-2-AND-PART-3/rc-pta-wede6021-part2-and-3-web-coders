@@ -3,6 +3,26 @@
 session_start();
 include 'DBConn.php';
 
+// Helper: resolve product image path (checks images/ and Uploads/ case-insensitively)
+function resolve_image_path($filename) {
+    if (empty($filename)) return '';
+    $folders = ['images', 'Uploads'];
+    foreach ($folders as $f) {
+        $path = __DIR__ . DIRECTORY_SEPARATOR . $f . DIRECTORY_SEPARATOR . $filename;
+        if (file_exists($path)) return $f . '/' . $filename;
+        if (is_dir(__DIR__ . DIRECTORY_SEPARATOR . $f)) {
+            $files = scandir(__DIR__ . DIRECTORY_SEPARATOR . $f);
+            foreach ($files as $file) {
+                if (strcasecmp($file, $filename) === 0) return $f . '/' . $file;
+                $baseA = pathinfo($file, PATHINFO_FILENAME);
+                $baseB = pathinfo($filename, PATHINFO_FILENAME);
+                if (strcasecmp($baseA, $baseB) === 0) return $f . '/' . $file;
+            }
+        }
+    }
+    return '';
+}
+
 $product_id = $_GET['id'] ?? 0;
 
 $sql = "SELECT p.*, c.category_name FROM tblProducts p 
@@ -150,7 +170,12 @@ $carbonSaved = round($product['price'] * 0.5, 2);
     
     <div class="product-container">
         <div class="product-image">
-            <img src="images/<?php echo htmlspecialchars($product['main_image']); ?>" alt="<?php echo htmlspecialchars($product['title']); ?>" style="max-width:100%; height:auto;">
+            <?php $img = resolve_image_path($product['main_image']); ?>
+            <?php if($img): ?>
+                <img src="<?php echo $img; ?>" alt="<?php echo htmlspecialchars($product['title']); ?>" style="max-width:100%; height:auto;">
+            <?php else: ?>
+                <div style="width:100%;height:300px;display:flex;align-items:center;justify-content:center;background:#f0f0f0;color:#999;">No image available</div>
+            <?php endif; ?>
         </div>
         <div class="product-details">
             <h1 class="product-title"><?php echo htmlspecialchars($product['title']); ?></h1>
@@ -170,9 +195,57 @@ $carbonSaved = round($product['price'] * 0.5, 2);
                     <button type="submit" class="btn btn-primary">Add to Cart 🛒</button>
                 </form>
                 <button class="btn" onclick="alert('Added to wishlist!')">Add to Wishlist ❤️</button>
-                <button class="btn" onclick="alert('Message seller feature coming soon!')">Message Seller 💬</button>
+                <button class="btn" id="msgToggleBtn">Message Seller 💬</button>
+                <div id="messageBox" style="display:none;margin-top:1rem;width:100%;">
+                    <textarea id="messageText" placeholder="Write a message to the seller..." style="width:100%;height:80px;padding:0.5rem;border:1px solid #ddd;border-radius:6px;"></textarea>
+                    <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.5rem;">
+                        <button class="btn" id="sendMsgBtn">Send Message</button>
+                        <button class="btn" id="cancelMsgBtn" style="background:#bbb;">Cancel</button>
+                        <span id="msgStatus" style="margin-left:1rem;color:#2c5f2d;"></span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+    <script>
+        const sellerId = <?php echo (int)$product['seller_id']; ?>;
+        const productId = <?php echo (int)$product['product_id']; ?>;
+        const toggle = document.getElementById('msgToggleBtn');
+        const box = document.getElementById('messageBox');
+        const sendBtn = document.getElementById('sendMsgBtn');
+        const cancelBtn = document.getElementById('cancelMsgBtn');
+        const statusEl = document.getElementById('msgStatus');
+
+        toggle.addEventListener('click', () => { box.style.display = box.style.display === 'none' ? 'block' : 'none'; });
+        cancelBtn.addEventListener('click', () => { box.style.display = 'none'; statusEl.textContent = ''; document.getElementById('messageText').value = ''; });
+
+        sendBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const text = document.getElementById('messageText').value.trim();
+            if (!text) { statusEl.style.color = 'red'; statusEl.textContent = 'Please enter a message.'; return; }
+            statusEl.style.color = '#2c5f2d'; statusEl.textContent = 'Sending...';
+            // Create a normal POST form so the server can redirect back to this product page
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'messages_action.php';
+            // hidden inputs
+            const inputs = {
+                action: 'send_message',
+                partner_id: sellerId,
+                message_text: text,
+                product_id: productId,
+                return_to: 'product.php?id=' + productId
+            };
+            for (const k in inputs) {
+                const inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = k;
+                inp.value = inputs[k];
+                form.appendChild(inp);
+            }
+            document.body.appendChild(form);
+            form.submit();
+        });
+    </script>
 </body>
 </html>
