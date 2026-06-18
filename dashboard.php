@@ -232,8 +232,18 @@ $wishlist = $conn->query("SELECT w.*, p.title, p.price, p.brand FROM tblWishlist
         <!-- Messages Tab -->
         <div id="messages" class="tab-content">
             <h2>Messages</h2>
-            <div class="seller-hub">
-                <p>💬 Message system coming soon! Buyers and sellers will be able to communicate directly about products.</p>
+            <div style="display:flex;gap:1rem;">
+                <div id="conversations" style="width:30%;background:#fafafa;padding:1rem;border-radius:8px;max-height:500px;overflow:auto;">
+                    <p style="color:#666">Loading conversations…</p>
+                </div>
+                <div id="chat" style="flex:1;background:#fff;padding:1rem;border-radius:8px;display:flex;flex-direction:column;max-height:500px;">
+                    <div id="chatWindow" style="flex:1;overflow:auto;padding:0.5rem;border:1px solid #eee;border-radius:6px;margin-bottom:0.75rem;">Select a conversation to start chatting.</div>
+                    <form id="sendMessageForm" style="display:flex;gap:0.5rem;">
+                        <input type="hidden" name="partner_id" id="partner_id" value="">
+                        <input type="text" name="message_text" id="message_text" placeholder="Write a message…" style="flex:1;padding:0.5rem;border:1px solid #ddd;border-radius:6px;" required>
+                        <button type="submit" style="padding:0.5rem 1rem;background:#2c5f2d;color:#fff;border:none;border-radius:6px;">Send</button>
+                    </form>
+                </div>
             </div>
         </div>
         
@@ -264,6 +274,84 @@ $wishlist = $conn->query("SELECT w.*, p.title, p.price, p.brand FROM tblWishlist
             });
             event.target.classList.add('active');
         }
+        // Messages functionality
+        async function fetchConversations() {
+            const res = await fetch('messages_action.php?action=list_conversations');
+            const data = await res.json();
+            const el = document.getElementById('conversations');
+            if (!data.success) { el.innerHTML = '<p style="color:red">Could not load conversations</p>'; return; }
+            if (data.conversations.length === 0) { el.innerHTML = '<p>No conversations yet.</p>'; return; }
+            el.innerHTML = '';
+            data.conversations.forEach(c => {
+                const d = document.createElement('div');
+                d.style.padding = '0.5rem';
+                d.style.borderBottom = '1px solid #eee';
+                d.style.cursor = 'pointer';
+                d.innerHTML = `<strong>${c.name} ${c.surname}</strong><div style="color:#666;font-size:0.9rem">${c.message_text ? c.message_text.substring(0,80) : ''}</div>`;
+                d.addEventListener('click', () => {
+                    document.getElementById('partner_id').value = c.partner_id;
+                    loadMessages(c.partner_id);
+                });
+                el.appendChild(d);
+            });
+        }
+
+        async function loadMessages(partnerId) {
+            const res = await fetch(`messages_action.php?action=get_messages&partner_id=${partnerId}`);
+            const data = await res.json();
+            const win = document.getElementById('chatWindow');
+            if (!data.success) { win.innerHTML = '<p style="color:red">Could not load messages</p>'; return; }
+            win.innerHTML = '';
+            data.messages.forEach(m => {
+                const div = document.createElement('div');
+                div.style.margin = '0.25rem 0';
+                if (m.sender_id == <?php echo $user_id; ?>) {
+                    div.style.textAlign = 'right';
+                    div.innerHTML = `<div style="display:inline-block;background:#2c5f2d;color:#fff;padding:0.5rem;border-radius:8px;max-width:70%">${escapeHtml(m.message_text)}</div><div style="font-size:0.8rem;color:#999">${m.sent_at}</div>`;
+                } else {
+                    div.style.textAlign = 'left';
+                    div.innerHTML = `<div style="display:inline-block;background:#f1f1f1;color:#000;padding:0.5rem;border-radius:8px;max-width:70%">${escapeHtml(m.message_text)}</div><div style="font-size:0.8rem;color:#999">${m.sent_at}</div>`;
+                }
+                win.appendChild(div);
+            });
+            win.scrollTop = win.scrollHeight;
+        }
+
+        document.getElementById('sendMessageForm').addEventListener('submit', async function(e){
+            e.preventDefault();
+            const partner = document.getElementById('partner_id').value;
+            const text = document.getElementById('message_text').value.trim();
+            if (!partner || !text) return;
+            const form = new FormData();
+            form.append('action','send_message');
+            form.append('partner_id', partner);
+            form.append('message_text', text);
+            const res = await fetch('messages_action.php', { method: 'POST', body: form });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('message_text').value = '';
+                loadMessages(partner);
+                fetchConversations();
+            } else {
+                alert('Could not send message');
+            }
+        });
+
+        function escapeHtml(text) {
+            return text.replace(/[&"'<>]/g, function (a) { return {'&':'&amp;','"':'&quot;',"'":'&#39;','<':'&lt;','>':'&gt;'}[a]; });
+        }
+
+        // initial load when user opens Messages tab
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (btn.textContent.includes('Messages')) {
+                    setTimeout(fetchConversations, 200);
+                }
+            });
+        });
+
+        // periodic refresh
+        setInterval(() => { const active = document.getElementById('messages').classList.contains('active'); if(active) fetchConversations(); }, 10000);
     </script>
 </body>
 </html>
