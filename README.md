@@ -32,4 +32,6 @@ already made account is: <br>
 Email: Joseph <br>
 Password: qwert1234 <br>
 <br>
-Github link: 
+Github link: https://github.com/RC-WEDE6021-PART-2-AND-PART-3/rc-pta-wede6021-part2-and-3-web-coders/tree/ST10457142-part-3
+<br>
+Video presentation: https://drive.google.com/file/d/1Q77Yd7ceMV4iJZ-Zf_Yrq_L1e6tG31dB/view?usp=drive_link
